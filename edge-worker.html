@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Project Hydra — Edge Worker</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Courier New', monospace; background: #0a0a0f; color: #a0f0a0; padding: 24px; }
+  h1 { color: #e2e8f0; margin-bottom: 8px; font-size: 1.1rem; }
+  .sub { color: #4a5568; font-size: .8rem; margin-bottom: 24px; }
+  #output { background: #111; border: 1px solid #2d3748; border-radius: 8px; padding: 16px; min-height: 120px; font-size: .85rem; line-height: 1.8; }
+  .controls { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  button { background: #1a1a2e; border: 1px solid #4a5568; color: #e2e8f0; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: .8rem; transition: all .2s; }
+  button:hover { border-color: #6366f1; color: #818cf8; }
+  button.primary { background: #312e81; border-color: #6366f1; }
+  .err  { color: #fc8181; }
+  .ok   { color: #68d391; }
+  .info { color: #63b3ed; }
+  .dim  { color: #4a5568; }
+</style>
+</head>
+<body>
+<h1>⬡ Project Hydra — Edge Worker</h1>
+<p class="sub">Connect to brain.py at localhost:8000 · Self-modifying JS runtime</p>
+
+<div class="controls">
+  <button class="primary" onclick="runTask()">▶ Run Task (will fail)</button>
+  <button onclick="resetLogic()">↺ Reset Logic</button>
+</div>
+
+<div id="output"><span class="dim">Ready. Click "Run Task" to trigger the self-correction loop.</span></div>
+
+<script>
+  const BRAIN_URL = "http://localhost:8000/evolve";
+
+  // Tier 0 — deliberately buggy logic (null value will cause crash)
+  let resolveTask = function(data) {
+    return data.items.map(i => i.value.toUpperCase());
+  };
+
+  const out = document.getElementById('output');
+  const log = (cls, msg) => out.innerHTML += `<div class="${cls}">${msg}</div>`;
+
+  function clearOutput() { out.innerHTML = ''; }
+
+  async function runTask() {
+    clearOutput();
+    const problemData = { items: [{ value: "hello" }, { value: null }, { value: "world" }] };
+
+    log('info', '→ Running task with problem data…');
+
+    try {
+      const result = resolveTask(problemData);
+      log('ok',   '✓ Result: ' + JSON.stringify(result));
+    } catch (err) {
+      log('err',  '✗ Error: ' + err.message);
+      log('info', '→ Sending telemetry to Central Brain…');
+
+      try {
+        const response = await fetch(BRAIN_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: err.message, code: resolveTask.toString(), worker_id: 'W-BROWSER' })
+        });
+        const result = await response.json();
+
+        if (result.status === 'evolved') {
+          log('info',  '→ Patch received from Brain (' + result.duration_ms + 'ms)');
+          resolveTask = new Function('data', result.logic);
+          log('ok',    '✓ Logic injected via new Function()');
+
+          try {
+            const finalResult = resolveTask(problemData);
+            log('ok', '✓ Retry succeeded: ' + JSON.stringify(finalResult));
+          } catch (retryErr) {
+            log('err', '✗ Retry failed: ' + retryErr.message);
+          }
+        } else if (result.status === 'rejected') {
+          log('err', '✗ Patch rejected: ' + result.reason);
+        } else {
+          log('err', '✗ Brain error: ' + (result.detail || 'unknown'));
+        }
+      } catch (fetchErr) {
+        log('err', '✗ Cannot reach Central Brain: ' + fetchErr.message);
+        log('dim', '  Make sure brain.py is running on port 8000');
+      }
+    }
+  }
+
+  function resetLogic() {
+    resolveTask = function(data) {
+      return data.items.map(i => i.value.toUpperCase());
+    };
+    clearOutput();
+    log('dim', '↺ Logic reset to original (buggy) version.');
+  }
+</script>
+</body>
+</html>

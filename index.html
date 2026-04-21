@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Project Hydra — Distributed Agentic Infrastructure</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="stylesheet" href="fs-3.0.min.css"/>
+<style>
+/* ── Project Hydra custom styles ── */
+:root {
+  --hydra-green:  #22c55e;
+  --hydra-blue:   #3b82f6;
+  --hydra-yellow: #eab308;
+  --hydra-red:    #ef4444;
+  --hydra-purple: #a855f7;
+}
+
+/* Pulse dot */
+.status-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-dot.online  { background: var(--hydra-green); animation: fs-ping 1.8s ease-in-out infinite; }
+.status-dot.idle    { background: var(--hydra-yellow); }
+.status-dot.error   { background: var(--hydra-red); }
+.status-dot.evolving{ background: var(--hydra-blue); animation: fs-ping 0.9s ease-in-out infinite; }
+
+/* Worker card */
+.worker-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--s-5);
+  transition: border-color 0.2s, transform 0.2s;
+  cursor: pointer;
+}
+.worker-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.worker-card.active-worker { border-color: var(--hydra-blue); background: color-mix(in srgb, var(--hydra-blue) 6%, var(--surface-1)); }
+
+/* Terminal output */
+#terminal-output {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  background: #0a0a0f;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--s-4);
+  height: 260px;
+  overflow-y: auto;
+  color: #a0f0a0;
+  line-height: 1.7;
+  scrollbar-width: thin;
+}
+.t-dim    { color: #4a5568; }
+.t-info   { color: #63b3ed; }
+.t-warn   { color: #f6e05e; }
+.t-err    { color: #fc8181; }
+.t-ok     { color: #68d391; }
+.t-accent { color: #b794f4; }
+.t-white  { color: #e2e8f0; }
+
+/* Code diff panel */
+.diff-panel {
+  background: #0a0a0f;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--s-4);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.8;
+  overflow-x: auto;
+}
+.diff-old { color: #fc8181; background: rgba(239,68,68,.08); display:block; padding: 0 8px; border-radius:3px; }
+.diff-new { color: #68d391; background: rgba(34,197,94,.08); display:block; padding: 0 8px; border-radius:3px; }
+.diff-ctx { color: #718096; display:block; padding: 0 8px; }
+
+/* Metric chip */
+.metric-chip {
+  display: inline-flex; align-items: center; gap: var(--s-2);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  padding: 3px 10px;
+  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  color: var(--muted-4);
+}
+
+/* Phase badge */
+.phase-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  border-radius: var(--r-sm);
+  padding: 3px 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.phase-badge.synthesis   { background: rgba(168,85,247,.15); color: #c084fc; border: 1px solid rgba(168,85,247,.3); }
+.phase-badge.telemetry   { background: rgba(59,130,246,.15); color: #60a5fa; border: 1px solid rgba(59,130,246,.3); }
+.phase-badge.verification{ background: rgba(234,179,8,.15);  color: #fde047; border: 1px solid rgba(234,179,8,.3); }
+.phase-badge.injection   { background: rgba(34,197,94,.15);  color: #4ade80; border: 1px solid rgba(34,197,94,.3); }
+.phase-badge.idle        { background: var(--surface-2); color: var(--muted-3); border: 1px solid var(--border); }
+
+/* Tier ladder */
+.tier-item {
+  display: flex; align-items: center; gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  transition: all 0.3s;
+}
+.tier-item.active-tier {
+  border-color: var(--hydra-blue);
+  background: color-mix(in srgb, var(--hydra-blue) 8%, var(--surface-1));
+}
+.tier-badge {
+  width: 28px; height: 28px;
+  border-radius: var(--r-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700;
+  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+/* Arch diagram */
+.arch-box {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--s-3) var(--s-4);
+  background: var(--surface-1);
+  text-align: center;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.arch-arrow {
+  display: flex; align-items: center; justify-content: center;
+  color: var(--muted-3);
+  font-size: var(--text-xs);
+  gap: var(--s-1);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 10px; }
+
+/* Stat card override */
+.hydra-stat {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--s-5);
+}
+</style>
+</head>
+<body>
+
+<!-- ── SIDE NAV ── -->
+<nav id="side-nav" aria-label="Sidebar Navigation">
+  <a href="#" class="fs-sidebar-logo">
+    <span style="color:var(--accent)">⬡</span>&nbsp;Project Hydra
+  </a>
+
+  <div class="fs-nav-group">
+    <div class="fs-nav-group-label">Dashboard</div>
+    <a href="#overview" class="fs-nav-item active"><i data-feather="activity" class="fs-nav-icon"></i> Overview</a>
+    <a href="#brain" class="fs-nav-item"><i data-feather="cpu" class="fs-nav-icon"></i> Central Brain</a>
+    <a href="#workers" class="fs-nav-item"><i data-feather="monitor" class="fs-nav-icon"></i> Edge Workers</a>
+    <a href="#evolution" class="fs-nav-item"><i data-feather="git-branch" class="fs-nav-icon"></i> Evolution Log</a>
+  </div>
+
+  <div class="fs-nav-group">
+    <div class="fs-nav-group-label">System</div>
+    <a href="#architecture" class="fs-nav-item"><i data-feather="layers" class="fs-nav-icon"></i> Architecture</a>
+    <a href="#security" class="fs-nav-item"><i data-feather="shield" class="fs-nav-icon"></i> Security Tiers</a>
+    <a href="#demo" class="fs-nav-item"><i data-feather="play-circle" class="fs-nav-icon"></i> Live Demo</a>
+  </div>
+
+  <div class="fs-nav-group">
+    <div class="fs-nav-group-label">Controls</div>
+    <a href="#" class="fs-nav-item" onclick="FineStyle.Commands.open();return false">
+      <i data-feather="command" class="fs-nav-icon"></i> Commands <kbd style="margin-left:auto;font-size:10px;opacity:.5">⌃K</kbd>
+    </a>
+    <a href="#" class="fs-nav-item" onclick="FineStyle.toggleTheme();return false">
+      <i data-feather="moon" class="fs-nav-icon"></i> Toggle Theme
+    </a>
+  </div>
+</nav>
+
+<!-- ── TOP NAVBAR ── -->
+<header class="fs-navbar">
+  <div class="fs-row align-center gap-4">
+    <button id="menu-toggle" class="menu-toggle" aria-label="Toggle menu">
+      <i data-feather="menu"></i>
+    </button>
+    <span class="fs-navbar-brand">⬡ Hydra <span style="color:var(--muted-2);font-size:var(--text-sm);font-family:var(--font-mono)">OS</span></span>
+  </div>
+  <nav class="fs-navbar-links" aria-label="Main navigation">
+    <a href="#brain">Brain</a>
+    <a href="#workers">Workers</a>
+    <a href="#evolution">Evo Log</a>
+    <a href="#demo">Demo</a>
+  </nav>
+  <div class="fs-row align-center gap-3">
+    <span class="metric-chip"><span id="nav-uptime">↑ 0s</span></span>
+    <button class="fs-btn fs-btn-ghost fs-btn-sm" onclick="FineStyle.Commands.open()" data-tooltip="⌃K">
+      <i data-feather="command"></i>
+    </button>
+    <button class="fs-btn fs-btn-ghost fs-btn-sm" onclick="FineStyle.toggleTheme()" data-tooltip="Toggle theme">
+      <i data-feather="sun"></i>
+    </button>
+    <button class="fs-btn fs-btn-primary fs-btn-sm" onclick="startSimulation()">
+      <i data-feather="play"></i> Run
+    </button>
+  </div>
+</header>
+
+<!-- ── MAIN ── -->
+<main>
+
+<!-- ════ HERO ════ -->
+<section id="overview" class="fs-hero" style="min-height:52vh;padding:var(--s-20) 0 var(--s-12)">
+  <div class="fs-orb fs-orb-accent" style="width:700px;height:700px;top:-200px;right:-150px;opacity:.25"></div>
+  <div class="fs-orb fs-orb-2"      style="width:450px;height:450px;bottom:-80px;left:-100px;opacity:.15"></div>
+
+  <div class="fs-hero-badge fs-animate-fade-in-down">
+    <i data-feather="zap" style="width:12px;height:12px"></i>
+    Distributed Agentic Infrastructure · Zero-Touch Debugging
+  </div>
+
+  <h1 class="fs-hero-title fs-animate-fade-in-up">
+    Project <em>Hydra</em>
+  </h1>
+
+  <p class="fs-hero-desc fs-animate-fade-in-up delay-100" style="max-width:560px">
+    A self-healing, self-evolving edge-compute system. When hardware fails, it asks for an update — then heals itself in seconds.
+  </p>
+
+  <div class="fs-row align-center gap-4 fs-animate-fade-in-up delay-200">
+    <button class="fs-btn fs-btn-primary fs-btn-lg" onclick="startSimulation()">
+      <i data-feather="play"></i> Start Simulation
+    </button>
+    <button class="fs-btn fs-btn-ghost fs-btn-lg" onclick="document.getElementById('architecture').scrollIntoView({behavior:'smooth'})">
+      <i data-feather="layers"></i> Architecture
+    </button>
+  </div>
+
+  <div class="fs-row align-center gap-8 mt-12 fs-animate-fade-in-up delay-300"
+       style="color:var(--muted-3);font-size:var(--text-sm)">
+    <span><strong style="color:var(--text-1)">5.9×</strong> Less Downtime</span>
+    <span><strong style="color:var(--text-1)">~0s</strong> MTTR</span>
+    <span><strong style="color:var(--text-1)">32×</strong> Cheaper AI</span>
+    <span><strong style="color:var(--text-1)">JSON</strong> Micro-updates</span>
+  </div>
+</section>
+
+<!-- ════ STAT STRIP ════ -->
+<section style="background:var(--surface-1);border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:var(--s-6) 0">
+  <div class="fs-container">
+    <div class="fs-data-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:var(--s-4)">
+
+      <div class="hydra-stat animate-on-scroll">
+        <div style="font-size:var(--text-xs);color:var(--muted-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:var(--s-1)">Evolutions</div>
+        <div class="fs-row align-center gap-2">
+          <span id="stat-evolutions" style="font-size:var(--text-3xl);font-weight:700;font-family:var(--font-mono)">0</span>
+          <span class="fs-badge fs-badge-success" style="font-size:.65rem">Live</span>
+        </div>
+      </div>
+
+      <div class="hydra-stat animate-on-scroll">
+        <div style="font-size:var(--text-xs);color:var(--muted-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:var(--s-1)">Errors Caught</div>
+        <div style="font-size:var(--text-3xl);font-weight:700;font-family:var(--font-mono)" id="stat-errors">0</div>
+      </div>
+
+      <div class="hydra-stat animate-on-scroll">
+        <div style="font-size:var(--text-xs);color:var(--muted-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:var(--s-1)">Rejected Patches</div>
+        <div style="font-size:var(--text-3xl);font-weight:700;font-family:var(--font-mono);color:var(--hydra-red)" id="stat-rejected">0</div>
+      </div>
+
+      <div class="hydra-stat animate-on-scroll">
+        <div style="font-size:var(--text-xs);color:var(--muted-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:var(--s-1)">Avg Heal Time</div>
+        <div style="font-size:var(--text-3xl);font-weight:700;font-family:var(--font-mono)" id="stat-heal">—</div>
+      </div>
+
+      <div class="hydra-stat animate-on-scroll">
+        <div style="font-size:var(--text-xs);color:var(--muted-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:var(--s-1)">Active Workers</div>
+        <div style="font-size:var(--text-3xl);font-weight:700;font-family:var(--font-mono)" id="stat-workers">4</div>
+      </div>
+
+      <div class="hydra-stat animate-on-scroll">
+        <div style="font-size:var(--text-xs);color:var(--muted-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:var(--s-1)">Uptime</div>
+        <div style="font-size:var(--text-3xl);font-weight:700;font-family:var(--font-mono);color:var(--hydra-green)" id="stat-uptime">0s</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ════ ARCHITECTURE ════ -->
+<section id="architecture" style="padding:var(--s-16) 0;border-bottom:1px solid var(--border)">
+  <div class="fs-container">
+    <h2 class="text-3xl font-display mb-2 animate-on-scroll">System Architecture</h2>
+    <p class="text-muted mb-10 animate-on-scroll">The self-correction loop across six phases — from failure detection to runtime injection.</p>
+
+    <!-- Phase pipeline -->
+    <div class="fs-row flex-wrap gap-3 mb-10 animate-on-scroll" style="align-items:stretch">
+
+      <div class="fs-card" style="flex:1;min-width:140px;text-align:center;border-color:rgba(168,85,247,.3)">
+        <div style="color:#c084fc;font-size:1.4rem;margin-bottom:var(--s-2)">①</div>
+        <div style="font-weight:600;font-size:var(--text-sm);color:var(--text-0)">Failure</div>
+        <div style="font-size:var(--text-xs);color:var(--muted-3);margin-top:var(--s-1)">Edge worker hits runtime error</div>
+      </div>
+
+      <div class="arch-arrow" style="flex:0 0 auto;padding-top:2rem">→</div>
+
+      <div class="fs-card" style="flex:1;min-width:140px;text-align:center;border-color:rgba(59,130,246,.3)">
+        <div style="color:#60a5fa;font-size:1.4rem;margin-bottom:var(--s-2)">②</div>
+        <div style="font-weight:600;font-size:var(--text-sm);color:var(--text-0)">Telemetry</div>
+        <div style="font-size:var(--text-xs);color:var(--muted-3);margin-top:var(--s-1)">Error + code POSTed to Brain</div>
+      </div>
+
+      <div class="arch-arrow" style="flex:0 0 auto;padding-top:2rem">→</div>
+
+      <div class="fs-card" style="flex:1;min-width:140px;text-align:center;border-color:rgba(168,85,247,.3)">
+        <div style="color:#c084fc;font-size:1.4rem;margin-bottom:var(--s-2)">③</div>
+        <div style="font-weight:600;font-size:var(--text-sm);color:var(--text-0)">Synthesis</div>
+        <div style="font-size:var(--text-xs);color:var(--muted-3);margin-top:var(--s-1)">AI generates corrected logic</div>
+      </div>
+
+      <div class="arch-arrow" style="flex:0 0 auto;padding-top:2rem">→</div>
+
+      <div class="fs-card" style="flex:1;min-width:140px;text-align:center;border-color:rgba(234,179,8,.3)">
+        <div style="color:#fde047;font-size:1.4rem;margin-bottom:var(--s-2)">④</div>
+        <div style="font-weight:600;font-size:var(--text-sm);color:var(--text-0)">Verification</div>
+        <div style="font-size:var(--text-xs);color:var(--muted-3);margin-top:var(--s-1)">Security scan + mock run</div>
+      </div>
+
+      <div class="arch-arrow" style="flex:0 0 auto;padding-top:2rem">→</div>
+
+      <div class="fs-card" style="flex:1;min-width:140px;text-align:center;border-color:rgba(34,197,94,.3)">
+        <div style="color:#4ade80;font-size:1.4rem;margin-bottom:var(--s-2)">⑤</div>
+        <div style="font-weight:600;font-size:var(--text-sm);color:var(--text-0)">Delivery</div>
+        <div style="font-size:var(--text-xs);color:var(--muted-3);margin-top:var(--s-1)">Patch sent as JSON string</div>
+      </div>
+
+      <div class="arch-arrow" style="flex:0 0 auto;padding-top:2rem">→</div>
+
+      <div class="fs-card" style="flex:1;min-width:140px;text-align:center;border-color:rgba(34,197,94,.5)">
+        <div style="color:#4ade80;font-size:1.4rem;margin-bottom:var(--s-2)">⑥</div>
+        <div style="font-weight:600;font-size:var(--text-sm);color:var(--text-0)">Injection</div>
+        <div style="font-size:var(--text-xs);color:var(--muted-3);margin-top:var(--s-1)">new Function() replaces logic</div>
+      </div>
+    </div>
+
+    <!-- Two-column: Brain vs Edge -->
+    <div class="fs-grid-2 gap-6 animate-on-scroll">
+      <div class="fs-card" style="border-color:rgba(168,85,247,.3)">
+        <div class="fs-row align-center gap-3 mb-4">
+          <i data-feather="cpu" style="color:#c084fc;width:20px;height:20px"></i>
+          <span style="font-weight:700;font-size:var(--text-lg)">Central Brain</span>
+          <span class="phase-badge synthesis" style="margin-left:auto">Server-Side</span>
+        </div>
+        <p style="color:var(--muted-4);font-size:var(--text-sm);margin-bottom:var(--s-4)">
+          FastAPI + Python orchestrator. Receives error telemetry, synthesizes a fix via DeepSeek-V3 or Llama 3, runs mock verification, then returns corrected logic as JSON.
+        </p>
+        <div class="fs-row flex-wrap gap-2">
+          <span class="fs-badge fs-badge-primary">FastAPI</span>
+          <span class="fs-badge">DeepSeek-V3</span>
+          <span class="fs-badge">Llama 3</span>
+          <span class="fs-badge">Groq</span>
+          <span class="fs-badge">Python</span>
+        </div>
+      </div>
+
+      <div class="fs-card" style="border-color:rgba(59,130,246,.3)">
+        <div class="fs-row align-center gap-3 mb-4">
+          <i data-feather="monitor" style="color:#60a5fa;width:20px;height:20px"></i>
+          <span style="font-weight:700;font-size:var(--text-lg)">Edge Worker</span>
+          <span class="phase-badge telemetry" style="margin-left:auto">Client-Side</span>
+        </div>
+        <p style="color:var(--muted-4);font-size:var(--text-sm);margin-bottom:var(--s-4)">
+          Vanilla JavaScript runtime that treats its own functions as mutable variables. On failure, captures state and POSTs telemetry to the Brain — then hot-swaps its logic via <code>new Function()</code>.
+        </p>
+        <div class="fs-row flex-wrap gap-2">
+          <span class="fs-badge fs-badge-primary">Vanilla JS</span>
+          <span class="fs-badge">new Function()</span>
+          <span class="fs-badge">fetch()</span>
+          <span class="fs-badge">Self-Modify</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════ CENTRAL BRAIN ════ -->
+<section id="brain" style="padding:var(--s-16) 0;border-bottom:1px solid var(--border)">
+  <div class="fs-container">
+    <h2 class="text-3xl font-display mb-2 animate-on-scroll">Central Brain</h2>
+    <p class="text-muted mb-8 animate-on-scroll">The synthesis and verification hub — powered by open-weight AI models.</p>
+
+    <div class="fs-grid-2 gap-6">
+      <!-- Brain status card -->
+      <div class="fs-card animate-on-scroll">
+        <div class="fs-row align-center gap-3 mb-5" style="border-bottom:1px solid var(--border);padding-bottom:var(--s-4)">
+          <span class="status-dot online"></span>
+          <span style="font-weight:600">Brain Status</span>
+          <span class="phase-badge synthesis" style="margin-left:auto" id="brain-phase-badge">Idle</span>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--s-3);margin-bottom:var(--s-5)">
+          <div>
+            <div style="font-size:var(--text-xs);color:var(--muted-3);margin-bottom:2px">AI Model</div>
+            <div style="font-weight:600;font-size:var(--text-sm)">DeepSeek-V3</div>
+          </div>
+          <div>
+            <div style="font-size:var(--text-xs);color:var(--muted-3);margin-bottom:2px">Endpoint</div>
+            <div style="font-weight:600;font-size:var(--text-sm);font-family:var(--font-mono)">:8000/evolve</div>
+          </div>
+          <div>
+            <div style="font-size:var(--text-xs);color:var(--muted-3);margin-bottom:2px">Requests Handled</div>
+            <div style="font-weight:600;font-size:var(--text-sm);font-family:var(--font-mono)" id="brain-requests">0</div>
+          </div>
+          <div>
+            <div style="font-size:var(--text-xs);color:var(--muted-3);margin-bottom:2px">Security Blocks</div>
+            <div style="font-weight:600;font-size:var(--text-sm);font-family:var(--font-mono);color:var(--hydra-yellow)" id="brain-blocks">0</div>
+          </div>
+        </div>
+
+        <!-- Bandwidth comparison -->
+        <div style="background:var(--surface-2);border-radius:var(--r-md);padding:var(--s-4)">
+          <div style="font-size:var(--text-xs);color:var(--muted-3);margin-bottom:var(--s-2)">Patch Size vs Full Bundle</div>
+          <div class="fs-row align-center gap-2 mb-1">
+            <span style="font-size:var(--text-xs);width:60px;color:var(--muted-4)">JSON patch</span>
+            <div class="fs-progress" style="flex:1;height:8px">
+              <div class="fs-progress-fill" style="width:17%;background:var(--hydra-green)"></div>
+            </div>
+            <span style="font-size:var(--text-xs);font-family:var(--font-mono);color:var(--hydra-green)">~1.2 KB</span>
+          </div>
+          <div class="fs-row align-center gap-2">
+            <span style="font-size:var(--text-xs);width:60px;color:var(--muted-4)">Full bundle</span>
+            <div class="fs-progress" style="flex:1;height:8px">
+              <div class="fs-progress-fill" style="width:100%;background:var(--hydra-red)"></div>
+            </div>
+            <span style="font-size:var(--text-xs);font-family:var(--font-mono);color:var(--hydra-red)">~7 MB</span>
+          </div>
+          <div style="font-size:var(--text-xs);color:var(--muted-3);margin-top:var(--s-2);text-align:right">5.9× bandwidth reduction</div>
+        </div>
+      </div>
+
+      <!-- brain.py snippet -->
+      <div class="animate-on-scroll">
+        <div class="fs-code-container">
+          <div class="fs-code-header">
+            <div class="fs-code-controls">
+              <div class="fs-code-window-control close"></div>
+              <div class="fs-code-window-control min"></div>
+              <div class="fs-code-window-control max"></div>
+            </div>
+            <span class="fs-code-filename">brain.py</span>
+          </div>
+          <div class="fs-code-content" style="font-size:.72rem;line-height:1.7">
+<span class="fs-code-keyword">from</span> <span class="fs-code-function">fastapi</span> <span class="fs-code-keyword">import</span> FastAPI, Request
+<span class="fs-code-keyword">from</span> <span class="fs-code-function">openai</span>   <span class="fs-code-keyword">import</span> OpenAI
+<span class="fs-code-keyword">import</span> <span class="fs-code-function">uvicorn</span>
+
+app = FastAPI()
+client = OpenAI(
+  base_url=<span class="fs-code-string">"https://api.deepseek.com"</span>,
+  api_key=<span class="fs-code-string">"YOUR_FREE_KEY"</span>
+)
+
+<span class="fs-code-keyword">@app</span>.post(<span class="fs-code-string">"/evolve"</span>)
+<span class="fs-code-keyword">async def</span> <span class="fs-code-function">evolve_worker</span>(request: Request):
+  data  = <span class="fs-code-keyword">await</span> request.json()
+  error = data.get(<span class="fs-code-string">"error"</span>)
+  code  = data.get(<span class="fs-code-string">"code"</span>)
+
+  <span class="fs-code-comment"># Phase 3 — Synthesis</span>
+  resp = client.chat.completions.create(
+    model=<span class="fs-code-string">"deepseek-chat"</span>,
+    messages=[{<span class="fs-code-string">"role"</span>:<span class="fs-code-string">"user"</span>,
+               <span class="fs-code-string">"content"</span>: prompt}]
+  )
+  new_logic = resp.choices[<span class="fs-code-number">0</span>].message.content
+
+  <span class="fs-code-comment"># Phase 4 — Verification</span>
+  <span class="fs-code-keyword">if</span> <span class="fs-code-string">"eval"</span> <span class="fs-code-keyword">in</span> new_logic:
+    <span class="fs-code-keyword">return</span> {<span class="fs-code-string">"status"</span>: <span class="fs-code-string">"rejected"</span>}
+  <span class="fs-code-keyword">return</span> {<span class="fs-code-string">"status"</span>: <span class="fs-code-string">"evolved"</span>,
+          <span class="fs-code-string">"logic"</span>: new_logic}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════ EDGE WORKERS ════ -->
+<section id="workers" style="padding:var(--s-16) 0;border-bottom:1px solid var(--border);background:var(--surface-1)">
+  <div class="fs-container">
+    <div class="fs-row align-center gap-4 mb-8">
+      <div>
+        <h2 class="text-3xl font-display mb-1 animate-on-scroll">Edge Workers</h2>
+        <p class="text-muted animate-on-scroll">Self-modifying JavaScript runtimes deployed at the edge.</p>
+      </div>
+      <button class="fs-btn fs-btn-outline fs-btn-sm" style="margin-left:auto" onclick="injectError()">
+        <i data-feather="alert-triangle"></i> Inject Error
+      </button>
+    </div>
+
+    <div class="demo-grid animate-on-scroll" id="worker-grid">
+      <!-- populated by JS -->
+    </div>
+  </div>
+</section>
+
+<!-- ════ SECURITY TIERS ════ -->
+<section id="security" style="padding:var(--s-16) 0;border-bottom:1px solid var(--border)">
+  <div class="fs-container">
+    <h2 class="text-3xl font-display mb-2 animate-on-scroll">Execution Ladder</h2>
+    <p class="text-muted mb-8 animate-on-scroll">Synthesized code escalates through increasingly hardened sandboxes based on complexity and risk.</p>
+
+    <div class="fs-grid-2 gap-6">
+      <div style="display:flex;flex-direction:column;gap:var(--s-3)" id="tier-ladder">
+
+        <div class="tier-item" data-tier="1">
+          <div class="tier-badge" style="background:rgba(34,197,94,.15);color:#4ade80">T1</div>
+          <div>
+            <div style="font-weight:600;font-size:var(--text-sm)">JS Isolate</div>
+            <div style="font-size:var(--text-xs);color:var(--muted-3)">Simple logic patches, no DOM access</div>
+          </div>
+          <span class="fs-badge fs-badge-success" style="margin-left:auto;font-size:.65rem">Active</span>
+        </div>
+
+        <div class="tier-item" data-tier="2">
+          <div class="tier-badge" style="background:rgba(59,130,246,.15);color:#60a5fa">T2</div>
+          <div>
+            <div style="font-weight:600;font-size:var(--text-sm)">Scoped Worker</div>
+            <div style="font-size:var(--text-xs);color:var(--muted-3)">Restricted Web Worker environment</div>
+          </div>
+          <span class="fs-badge" style="margin-left:auto;font-size:.65rem">Standby</span>
+        </div>
+
+        <div class="tier-item" data-tier="3">
+          <div class="tier-badge" style="background:rgba(234,179,8,.15);color:#fde047">T3</div>
+          <div>
+            <div style="font-weight:600;font-size:var(--text-sm)">Shadow Frame</div>
+            <div style="font-size:var(--text-xs);color:var(--muted-3)">Isolated iframe with CSP headers</div>
+          </div>
+          <span class="fs-badge" style="margin-left:auto;font-size:.65rem">Standby</span>
+        </div>
+
+        <div class="tier-item" data-tier="4">
+          <div class="tier-badge" style="background:rgba(239,68,68,.15);color:#fc8181">T4</div>
+          <div>
+            <div style="font-weight:600;font-size:var(--text-sm)">Full Sandbox</div>
+            <div style="font-size:var(--text-xs);color:var(--muted-3)">Docker container, complete isolation</div>
+          </div>
+          <span class="fs-badge fs-badge-danger" style="margin-left:auto;font-size:.65rem">Reserved</span>
+        </div>
+      </div>
+
+      <div class="fs-card animate-on-scroll">
+        <div style="font-weight:600;margin-bottom:var(--s-4)">Security Verification Rules</div>
+        <div style="display:flex;flex-direction:column;gap:var(--s-3)">
+          <div class="fs-row align-center gap-3">
+            <i data-feather="x-circle" style="color:var(--hydra-red);width:16px;height:16px;flex-shrink:0"></i>
+            <div>
+              <div style="font-size:var(--text-sm);font-weight:500">Blocked: <code>eval()</code></div>
+              <div style="font-size:var(--text-xs);color:var(--muted-3)">Arbitrary code execution vector</div>
+            </div>
+          </div>
+          <div class="fs-row align-center gap-3">
+            <i data-feather="x-circle" style="color:var(--hydra-red);width:16px;height:16px;flex-shrink:0"></i>
+            <div>
+              <div style="font-size:var(--text-sm);font-weight:500">Blocked: <code>window.*</code></div>
+              <div style="font-size:var(--text-xs);color:var(--muted-3)">Global scope access forbidden</div>
+            </div>
+          </div>
+          <div class="fs-row align-center gap-3">
+            <i data-feather="x-circle" style="color:var(--hydra-red);width:16px;height:16px;flex-shrink:0"></i>
+            <div>
+              <div style="font-size:var(--text-sm);font-weight:500">Blocked: <code>document.cookie</code></div>
+              <div style="font-size:var(--text-xs);color:var(--muted-3)">Credential exfiltration vector</div>
+            </div>
+          </div>
+          <div class="fs-row align-center gap-3">
+            <i data-feather="check-circle" style="color:var(--hydra-green);width:16px;height:16px;flex-shrink:0"></i>
+            <div>
+              <div style="font-size:var(--text-sm);font-weight:500">Allowed: Pure functions</div>
+              <div style="font-size:var(--text-xs);color:var(--muted-3)">Deterministic, side-effect-free logic</div>
+            </div>
+          </div>
+          <div class="fs-row align-center gap-3">
+            <i data-feather="check-circle" style="color:var(--hydra-green);width:16px;height:16px;flex-shrink:0"></i>
+            <div>
+              <div style="font-size:var(--text-sm);font-weight:500">Allowed: Array/Object methods</div>
+              <div style="font-size:var(--text-xs);color:var(--muted-3)">map, filter, reduce, spread, etc.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════ LIVE DEMO ════ -->
+<section id="demo" style="padding:var(--s-16) 0;border-bottom:1px solid var(--border);background:var(--surface-1)">
+  <div class="fs-container fs-container-md">
+    <h2 class="text-3xl font-display mb-2 animate-on-scroll">Live Simulation</h2>
+    <p class="text-muted mb-8 animate-on-scroll">Watch the full self-correction loop execute in real-time.</p>
+
+    <!-- Control bar -->
+    <div class="fs-row flex-wrap gap-3 mb-6 animate-on-scroll">
+      <button class="fs-btn fs-btn-primary" onclick="startSimulation()" id="btn-run">
+        <i data-feather="play"></i> Run Simulation
+      </button>
+      <button class="fs-btn fs-btn-outline" onclick="injectError()">
+        <i data-feather="alert-triangle"></i> Inject Error
+      </button>
+      <button class="fs-btn fs-btn-outline" onclick="injectMalicious()">
+        <i data-feather="shield-off"></i> Inject Malicious Patch
+      </button>
+      <button class="fs-btn fs-btn-ghost" onclick="clearTerminal()">
+        <i data-feather="trash"></i> Clear
+      </button>
+      <div class="fs-row align-center gap-2" style="margin-left:auto">
+        <span style="font-size:var(--text-xs);color:var(--muted-3)">Current Phase:</span>
+        <span class="phase-badge idle" id="current-phase">Idle</span>
+      </div>
+    </div>
+
+    <!-- Terminal -->
+    <div id="terminal-output" class="animate-on-scroll">
+      <span class="t-dim">Project Hydra OS — ready. Press "Run Simulation" to begin.</span><br/>
+      <span class="t-dim">────────────────────────────────────────────</span><br/>
+    </div>
+
+    <!-- Code diff -->
+    <div class="mt-6 animate-on-scroll">
+      <div class="fs-row align-center gap-3 mb-3">
+        <span style="font-size:var(--text-sm);font-weight:600">Code Diff — Last Evolution</span>
+        <span class="fs-badge" id="diff-status">No evolution yet</span>
+      </div>
+      <div class="diff-panel" id="diff-panel">
+        <span class="diff-ctx">// Run a simulation to see the before/after code diff</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════ EVOLUTION LOG ════ -->
+<section id="evolution" style="padding:var(--s-16) 0;border-bottom:1px solid var(--border)">
+  <div class="fs-container">
+    <div class="fs-row align-center gap-4 mb-8">
+      <div>
+        <h2 class="text-3xl font-display mb-1 animate-on-scroll">Evolution Log</h2>
+        <p class="text-muted animate-on-scroll">Audit trail of every self-healing event.</p>
+      </div>
+      <button class="fs-btn fs-btn-ghost fs-btn-sm" style="margin-left:auto" onclick="clearLog()">
+        <i data-feather="trash-2"></i> Clear Log
+      </button>
+    </div>
+
+    <div class="fs-table-container animate-on-scroll">
+      <table class="fs-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Timestamp</th>
+            <th>Worker</th>
+            <th>Error</th>
+            <th>Phase Reached</th>
+            <th>Outcome</th>
+            <th>Heal Time</th>
+          </tr>
+        </thead>
+        <tbody id="evo-log-body">
+          <tr>
+            <td colspan="7" style="text-align:center;color:var(--muted-3);padding:var(--s-8)">
+              No evolutions yet — run the simulation to begin.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ════ CHART ════ -->
+<section style="padding:var(--s-16) 0;border-bottom:1px solid var(--border);background:var(--surface-1)">
+  <div class="fs-container">
+    <h2 class="text-3xl font-display mb-8 animate-on-scroll">Evolution Metrics</h2>
+    <div class="fs-grid-2 gap-6">
+      <div class="fs-chart-wrapper animate-on-scroll">
+        <div class="fs-chart-header">
+          <div>
+            <div class="fs-chart-title">Evolutions Over Time</div>
+            <div class="fs-chart-subtitle">Cumulative successful patches</div>
+          </div>
+        </div>
+        <canvas id="evo-chart" class="fs-chart-canvas" height="180"></canvas>
+      </div>
+      <div class="fs-chart-wrapper animate-on-scroll">
+        <div class="fs-chart-header">
+          <div>
+            <div class="fs-chart-title">Event Breakdown</div>
+            <div class="fs-chart-subtitle">Outcomes of all error events</div>
+          </div>
+        </div>
+        <canvas id="outcome-chart" class="fs-chart-canvas" height="180"></canvas>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════ MODEL COMPARISON ════ -->
+<section style="padding:var(--s-16) 0">
+  <div class="fs-container">
+    <h2 class="text-3xl font-display mb-2 animate-on-scroll">AI Model Selection</h2>
+    <p class="text-muted mb-8 animate-on-scroll">DeepSeek-V3 is recommended — 32× cheaper than comparable closed-source models with equivalent coding accuracy.</p>
+
+    <div class="fs-table-container animate-on-scroll">
+      <table class="fs-table">
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>Tier</th>
+            <th>Access</th>
+            <th>Coding Accuracy</th>
+            <th>Relative Cost</th>
+            <th>Recommended</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>DeepSeek-V3</strong></td>
+            <td><span class="fs-badge fs-badge-primary">Open-Weight</span></td>
+            <td>API / Local Ollama</td>
+            <td>
+              <div class="fs-progress" style="height:6px;width:120px">
+                <div class="fs-progress-fill" style="width:91%;background:var(--hydra-green)"></div>
+              </div>
+            </td>
+            <td style="font-family:var(--font-mono);color:var(--hydra-green)">1× (baseline)</td>
+            <td><span class="fs-badge fs-badge-success">✓ Primary</span></td>
+          </tr>
+          <tr>
+            <td><strong>Llama 3</strong></td>
+            <td><span class="fs-badge fs-badge-primary">Open-Weight</span></td>
+            <td>Groq / Ollama</td>
+            <td>
+              <div class="fs-progress" style="height:6px;width:120px">
+                <div class="fs-progress-fill" style="width:85%"></div>
+              </div>
+            </td>
+            <td style="font-family:var(--font-mono)">~1×</td>
+            <td><span class="fs-badge fs-badge-warning">Fallback</span></td>
+          </tr>
+          <tr>
+            <td><strong>GPT-4o</strong></td>
+            <td><span class="fs-badge">Closed</span></td>
+            <td>OpenAI API</td>
+            <td>
+              <div class="fs-progress" style="height:6px;width:120px">
+                <div class="fs-progress-fill" style="width:95%;background:var(--hydra-blue)"></div>
+              </div>
+            </td>
+            <td style="font-family:var(--font-mono);color:var(--hydra-red)">~32×</td>
+            <td><span class="fs-badge">Not Ideal</span></td>
+          </tr>
+          <tr>
+            <td><strong>Gemini 2.0 Flash</strong></td>
+            <td><span class="fs-badge fs-badge-primary">Free Tier</span></td>
+            <td>Google AI</td>
+            <td>
+              <div class="fs-progress" style="height:6px;width:120px">
+                <div class="fs-progress-fill" style="width:80%;background:var(--hydra-yellow)"></div>
+              </div>
+            </td>
+            <td style="font-family:var(--font-mono);color:var(--hydra-green)">Free</td>
+            <td><span class="fs-badge fs-badge-warning">Alt Option</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ── MODAL: Worker detail ── -->
+<div class="fs-modal-backdrop" id="worker-modal" onclick="closeWorkerModal(event)">
+  <div class="fs-modal-content" style="max-width:480px">
+    <div class="fs-modal-header">
+      <span class="fs-modal-title" id="modal-title">Worker Detail</span>
+      <button class="fs-btn fs-btn-ghost fs-btn-sm" onclick="closeWorkerModal()"><i data-feather="x"></i></button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script src="fs-3.0.min.js"></script>
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+//  PROJECT HYDRA — Simulation Engine
+// ─────────────────────────────────────────────────────────────────────────────
+
+const WORKERS = [
+  { id: 'W-001', name: 'Alpha Node',   region: 'PH-Region VIII', status: 'online',  evolutions: 0, errors: 0 },
+  { id: 'W-002', name: 'Beta Node',    region: 'PH-NCR',         status: 'online',  evolutions: 0, errors: 0 },
+  { id: 'W-003', name: 'Gamma Node',   region: 'PH-Region VII',  status: 'idle',    evolutions: 0, errors: 0 },
+  { id: 'W-004', name: 'Delta Node',   region: 'SG-East',        status: 'online',  evolutions: 0, errors: 0 },
+];
+
+const ERRORS = [
+  {
+    msg: "Cannot read properties of null (reading 'toUpperCase')",
+    code: `function(data) {\n  return data.items.map(i => i.value.toUpperCase());\n}`,
+    fix:  `function(data) {\n  return data.items.map(i => (i.value ?? '').toUpperCase());\n}`
+  },
+  {
+    msg: "data.items is not iterable",
+    code: `function(data) {\n  return data.items.filter(x => x.active);\n}`,
+    fix:  `function(data) {\n  return (Array.isArray(data.items) ? data.items : []).filter(x => x.active);\n}`
+  },
+  {
+    msg: "Maximum call stack size exceeded",
+    code: `function(data) {\n  return processNode(data, processNode);\n}`,
+    fix:  `function(data) {\n  const stack = [data]; const out = [];\n  while(stack.length) { const n = stack.pop(); out.push(n.value); if(n.children) stack.push(...n.children); }\n  return out;\n}`
+  },
+];
+
+const MALICIOUS = [
+  { code: `function(data) { return eval(data.cmd); }`, reason: "eval() detected" },
+  { code: `function(data) { window.location = data.url; }`, reason: "window.* access detected" },
+  { code: `function(data) { document.cookie = data.payload; }`, reason: "cookie access detected" },
+];
+
+let stats = { evolutions: 0, errors: 0, rejected: 0, healTimes: [], uptime: 0 };
+let evoLog = [];
+let evoChartData = { labels: [], values: [] };
+let outcomeData  = { evolved: 0, rejected: 0, failed: 0 };
+let simRunning = false;
+let evoChart, outcomeChart;
+let uptimeInterval;
+
+// ── Boot ────────────────────────────────────────────────────────────────────
+
+window.addEventListener('DOMContentLoaded', () => {
+  feather.replace();
+  renderWorkers();
+  initCharts();
+  initCommands();
+
+  uptimeInterval = setInterval(() => {
+    stats.uptime++;
+    const s = stats.uptime;
+    const label = s < 60 ? `${s}s` : s < 3600 ? `${Math.floor(s/60)}m ${s%60}s` : `${Math.floor(s/3600)}h`;
+    document.getElementById('stat-uptime').textContent = label;
+    document.getElementById('nav-uptime').textContent  = `↑ ${label}`;
+  }, 1000);
+
+  // Scroll animations
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.animate-on-scroll').forEach(el => obs.observe(el));
+});
+
+// ── Workers ─────────────────────────────────────────────────────────────────
+
+function renderWorkers() {
+  const grid = document.getElementById('worker-grid');
+  grid.innerHTML = WORKERS.map(w => `
+    <div class="worker-card" id="wcard-${w.id}" onclick="openWorkerModal('${w.id}')">
+      <div class="fs-row align-center gap-3 mb-3">
+        <span class="status-dot ${w.status}" id="dot-${w.id}"></span>
+        <span style="font-weight:600;font-size:var(--text-sm)">${w.name}</span>
+        <span class="fs-badge" style="margin-left:auto;font-size:.6rem" id="badge-${w.id}">${w.status.toUpperCase()}</span>
+      </div>
+      <div style="font-size:var(--text-xs);color:var(--muted-3);font-family:var(--font-mono);margin-bottom:var(--s-3)">${w.id} · ${w.region}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--s-2)">
+        <div>
+          <div style="font-size:var(--text-xs);color:var(--muted-3)">Evolutions</div>
+          <div style="font-weight:700;font-family:var(--font-mono)" id="wevo-${w.id}">${w.evolutions}</div>
+        </div>
+        <div>
+          <div style="font-size:var(--text-xs);color:var(--muted-3)">Errors</div>
+          <div style="font-weight:700;font-family:var(--font-mono);color:var(--hydra-yellow)" id="werr-${w.id}">${w.errors}</div>
+        </div>
+      </div>
+      <div style="margin-top:var(--s-3)">
+        <span class="phase-badge idle" id="wphase-${w.id}">Idle</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateWorker(wid, field, val) {
+  const w = WORKERS.find(x => x.id === wid);
+  if (!w) return;
+  w[field] = val;
+  const el = document.getElementById(`w${field.slice(0,3)}-${wid}`);
+  if (el) el.textContent = val;
+}
+
+function setWorkerPhase(wid, phase) {
+  const pb = document.getElementById(`wphase-${wid}`);
+  if (!pb) return;
+  pb.className = `phase-badge ${phase}`;
+  pb.textContent = phase.charAt(0).toUpperCase() + phase.slice(1);
+
+  const dot   = document.getElementById(`dot-${wid}`);
+  const badge = document.getElementById(`badge-${wid}`);
+  const card  = document.getElementById(`wcard-${wid}`);
+
+  const statusMap = { idle:'idle', telemetry:'evolving', synthesis:'evolving', verification:'evolving', injection:'online', error:'error' };
+  const st = statusMap[phase] || 'online';
+  dot.className   = `status-dot ${st}`;
+  badge.textContent = st.toUpperCase();
+  card.classList.toggle('active-worker', ['telemetry','synthesis','verification','injection'].includes(phase));
+}
+
+// ── Simulation ───────────────────────────────────────────────────────────────
+
+async function startSimulation() {
+  if (simRunning) return;
+  simRunning = true;
+  document.getElementById('btn-run').disabled = true;
+
+  const w   = WORKERS[Math.floor(Math.random() * WORKERS.length)];
+  const err = ERRORS[Math.floor(Math.random() * ERRORS.length)];
+
+  await runEvolution(w, err, false);
+
+  simRunning = false;
+  document.getElementById('btn-run').disabled = false;
+}
+
+async function injectError() {
+  if (simRunning) { FineStyle.Toast.warn('Simulation already running', {title:'Wait'}); return; }
+  simRunning = true;
+  const w   = WORKERS[Math.floor(Math.random() * WORKERS.length)];
+  const err = ERRORS[Math.floor(Math.random() * ERRORS.length)];
+  await runEvolution(w, err, false);
+  simRunning = false;
+}
+
+async function injectMalicious() {
+  if (simRunning) { FineStyle.Toast.warn('Simulation already running', {title:'Wait'}); return; }
+  simRunning = true;
+  const w   = WORKERS[Math.floor(Math.random() * WORKERS.length)];
+  const mal = MALICIOUS[Math.floor(Math.random() * MALICIOUS.length)];
+  await runEvolution(w, { msg: 'Injection attempt', code: mal.code, fix: null, malicious: true, reason: mal.reason }, true);
+  simRunning = false;
+}
+
+async function runEvolution(worker, errData, isMalicious) {
+  const term = document.getElementById('terminal-output');
+  const t = (cls, msg) => { term.innerHTML += `<span class="${cls}">${msg}</span><br/>`; term.scrollTop = term.scrollHeight; };
+  const setPhase = (ph) => {
+    setWorkerPhase(worker.id, ph);
+    const pb = document.getElementById('current-phase');
+    pb.className = `phase-badge ${ph}`;
+    pb.textContent = ph.charAt(0).toUpperCase() + ph.slice(1);
+  };
+  const delay = ms => new Promise(r => setTimeout(r, ms));
+
+  const startTime = Date.now();
+  const ts = new Date().toLocaleTimeString();
+
+  t('t-dim', '');
+  t('t-dim', `──── EVOLUTION EVENT · ${ts} ────`);
+  t('t-info', `[PHASE 1] Failure detected on ${worker.name} (${worker.id})`);
+  t('t-err',  `          Error: ${errData.msg}`);
+  setPhase('telemetry');
+  await delay(600);
+
+  t('t-info', `[PHASE 2] Telemetry → POST /evolve to Central Brain`);
+  t('t-dim',  `          Payload: { error, code } (${JSON.stringify({error: errData.msg}).length} bytes)`);
+  await delay(700);
+
+  t('t-accent','[PHASE 3] Synthesis — AI model generating corrected logic…');
+  setPhase('synthesis');
+  await delay(900 + Math.random() * 600);
+  t('t-ok',   `          Logic synthesized (DeepSeek-V3)`);
+
+  t('t-warn', `[PHASE 4] Verification — scanning for security violations…`);
+  setPhase('verification');
+  await delay(500);
+
+  if (isMalicious) {
+    t('t-err',  `          ✗ REJECTED: ${errData.reason}`);
+    t('t-err',  `[BLOCKED] Patch discarded. Worker remains on prior logic.`);
+    setPhase('error');
+    setWorkerPhase(worker.id, 'idle');
+
+    stats.rejected++;
+    outcomeData.rejected++;
+    document.getElementById('stat-rejected').textContent = stats.rejected;
+    document.getElementById('brain-blocks').textContent  = stats.rejected;
+
+    addLogEntry(worker, errData.msg, 'Verification', 'Rejected', '—');
+    updateOutcomeChart();
+    FineStyle.Toast.error(`Security violation blocked on ${worker.name}`, { title: 'Patch Rejected' });
+    return;
+  }
+
+  t('t-ok', `          ✓ Clean — no security violations found`);
+  t('t-info','[PHASE 5] Delivery — JSON patch dispatched to edge worker');
+  await delay(400);
+
+  t('t-accent','[PHASE 6] Self-Modification — new Function() injected at runtime');
+  setPhase('injection');
+  await delay(600);
+
+  const healMs = Date.now() - startTime;
+  t('t-ok',   `          ✓ Worker logic updated successfully`);
+  t('t-ok',   `[HEALED]  ${worker.name} resumed in ${healMs}ms`);
+
+  // Update diff
+  updateDiff(errData.code, errData.fix);
+
+  // Update stats
+  stats.evolutions++;
+  stats.errors++;
+  stats.healTimes.push(healMs);
+  const avgHeal = Math.round(stats.healTimes.reduce((a,b) => a+b, 0) / stats.healTimes.length);
+
+  WORKERS.find(x => x.id === worker.id).evolutions++;
+  WORKERS.find(x => x.id === worker.id).errors++;
+  document.getElementById(`wevo-${worker.id}`).textContent = WORKERS.find(x => x.id === worker.id).evolutions;
+  document.getElementById(`werr-${worker.id}`).textContent = WORKERS.find(x => x.id === worker.id).errors;
+
+  document.getElementById('stat-evolutions').textContent = stats.evolutions;
+  document.getElementById('stat-errors').textContent     = stats.errors;
+  document.getElementById('stat-heal').textContent       = `${avgHeal}ms`;
+  document.getElementById('brain-requests').textContent  = stats.evolutions;
+
+  outcomeData.evolved++;
+  updateEvoChart(ts);
+  updateOutcomeChart();
+  addLogEntry(worker, errData.msg, 'Injection', 'Evolved ✓', `${healMs}ms`);
+
+  setPhase('idle');
+  setWorkerPhase(worker.id, 'idle');
+  document.getElementById('current-phase').className = 'phase-badge idle';
+  document.getElementById('current-phase').textContent = 'Idle';
+
+  FineStyle.Toast.success(`${worker.name} healed in ${healMs}ms`, { title: 'Evolution Complete' });
+}
+
+// ── Diff ─────────────────────────────────────────────────────────────────────
+
+function updateDiff(oldCode, newCode) {
+  const panel  = document.getElementById('diff-panel');
+  const status = document.getElementById('diff-status');
+
+  const oldLines = oldCode.split('\n');
+  const newLines = newCode.split('\n');
+
+  let html = '';
+  const maxLen = Math.max(oldLines.length, newLines.length);
+  for (let i = 0; i < maxLen; i++) {
+    const o = oldLines[i];
+    const n = newLines[i];
+    if (o === n || (o === undefined && n === undefined)) {
+      html += `<span class="diff-ctx">  ${escHtml(o || n || '')}</span>`;
+    } else {
+      if (o !== undefined) html += `<span class="diff-old">- ${escHtml(o)}</span>`;
+      if (n !== undefined) html += `<span class="diff-new">+ ${escHtml(n)}</span>`;
+    }
+  }
+  panel.innerHTML = html;
+  status.textContent = 'Evolution applied';
+  status.className   = 'fs-badge fs-badge-success';
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Charts ───────────────────────────────────────────────────────────────────
+
+function initCharts() {
+  const accent = '#6366f1';
+  Chart.defaults.color = '#6b7280';
+
+  evoChart = new Chart(document.getElementById('evo-chart'), {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{ label: 'Evolutions', data: [], borderColor: accent, backgroundColor: accent + '20', fill: true, tension: 0.4, pointRadius: 3 }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+  });
+
+  outcomeChart = new Chart(document.getElementById('outcome-chart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Evolved', 'Rejected', 'Failed'],
+      datasets: [{ data: [0, 0, 0], backgroundColor: ['#22c55e', '#ef4444', '#eab308'], borderWidth: 0 }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom' } }, cutout: '65%' }
+  });
+}
+
+function updateEvoChart(label) {
+  evoChartData.labels.push(label);
+  evoChartData.values.push(stats.evolutions);
+  if (evoChartData.labels.length > 10) { evoChartData.labels.shift(); evoChartData.values.shift(); }
+  evoChart.data.labels   = evoChartData.labels;
+  evoChart.data.datasets[0].data = evoChartData.values;
+  evoChart.update();
+}
+
+function updateOutcomeChart() {
+  outcomeChart.data.datasets[0].data = [outcomeData.evolved, outcomeData.rejected, outcomeData.failed];
+  outcomeChart.update();
+}
+
+// ── Log ──────────────────────────────────────────────────────────────────────
+
+function addLogEntry(worker, error, phase, outcome, healTime) {
+  evoLog.unshift({ seq: evoLog.length + 1, ts: new Date().toLocaleTimeString(), worker: `${worker.name} (${worker.id})`, error, phase, outcome, healTime });
+  renderLog();
+}
+
+function renderLog() {
+  const body = document.getElementById('evo-log-body');
+  body.innerHTML = evoLog.map(e => `
+    <tr>
+      <td style="font-family:var(--font-mono);color:var(--muted-3)">${e.seq}</td>
+      <td style="font-family:var(--font-mono);font-size:var(--text-xs)">${e.ts}</td>
+      <td>${e.worker}</td>
+      <td style="font-size:var(--text-xs);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${e.error}">${e.error}</td>
+      <td><span class="phase-badge ${e.phase.toLowerCase()}">${e.phase}</span></td>
+      <td>${e.outcome.includes('✓')
+           ? `<span class="fs-badge fs-badge-success">${e.outcome}</span>`
+           : `<span class="fs-badge fs-badge-danger">${e.outcome}</span>`}</td>
+      <td style="font-family:var(--font-mono)">${e.healTime}</td>
+    </tr>
+  `).join('');
+}
+
+function clearLog() {
+  evoLog = [];
+  document.getElementById('evo-log-body').innerHTML = `
+    <tr><td colspan="7" style="text-align:center;color:var(--muted-3);padding:var(--s-8)">Log cleared.</td></tr>`;
+}
+
+// ── Terminal ─────────────────────────────────────────────────────────────────
+
+function clearTerminal() {
+  document.getElementById('terminal-output').innerHTML =
+    '<span class="t-dim">Terminal cleared. Ready.</span><br/>';
+}
+
+// ── Worker Modal ─────────────────────────────────────────────────────────────
+
+function openWorkerModal(wid) {
+  const w = WORKERS.find(x => x.id === wid);
+  document.getElementById('modal-title').textContent = `${w.name} — ${w.id}`;
+  document.getElementById('modal-body').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--s-4);margin-bottom:var(--s-5)">
+      <div class="hydra-stat"><div style="font-size:var(--text-xs);color:var(--muted-3)">Region</div><div style="font-weight:600">${w.region}</div></div>
+      <div class="hydra-stat"><div style="font-size:var(--text-xs);color:var(--muted-3)">Status</div><div style="font-weight:600;text-transform:capitalize">${w.status}</div></div>
+      <div class="hydra-stat"><div style="font-size:var(--text-xs);color:var(--muted-3)">Evolutions</div><div style="font-weight:700;font-family:var(--font-mono);font-size:var(--text-xl)">${w.evolutions}</div></div>
+      <div class="hydra-stat"><div style="font-size:var(--text-xs);color:var(--muted-3)">Errors</div><div style="font-weight:700;font-family:var(--font-mono);font-size:var(--text-xl);color:var(--hydra-yellow)">${w.errors}</div></div>
+    </div>
+    <button class="fs-btn fs-btn-primary fs-btn-sm" onclick="closeWorkerModal();setTimeout(()=>{injectError()},200)">
+      <i data-feather="alert-triangle"></i> Trigger Error on this Worker
+    </button>
+  `;
+  feather.replace();
+  document.getElementById('worker-modal').classList.add('open');
+}
+
+function closeWorkerModal(e) {
+  if (!e || e.target === document.getElementById('worker-modal')) {
+    document.getElementById('worker-modal').classList.remove('open');
+  }
+}
+
+// ── Commands ─────────────────────────────────────────────────────────────────
+
+function initCommands() {
+  if (!FineStyle?.Commands) return;
+  FineStyle.Commands.register([
+    { label: 'Run Simulation',          icon: 'play',          action: () => startSimulation() },
+    { label: 'Inject Error',            icon: 'alert-triangle', action: () => injectError() },
+    { label: 'Inject Malicious Patch',  icon: 'shield-off',    action: () => injectMalicious() },
+    { label: 'Clear Terminal',          icon: 'trash',         action: () => clearTerminal() },
+    { label: 'Clear Evolution Log',     icon: 'trash-2',       action: () => clearLog() },
+    { label: 'Toggle Theme',            icon: 'moon',          action: () => FineStyle.toggleTheme() },
+    { label: 'Go to Architecture',      icon: 'layers',        action: () => document.getElementById('architecture').scrollIntoView({behavior:'smooth'}) },
+    { label: 'Go to Live Demo',         icon: 'terminal',      action: () => document.getElementById('demo').scrollIntoView({behavior:'smooth'}) },
+  ]);
+}
+</script>
+</body>
+</html>
