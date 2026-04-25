@@ -26,7 +26,7 @@ The repository currently has no automated tests for the FastAPI orchestration fl
 
 ### Phase 1 — Reliability and Test Maturity (Immediate)
 
-- Add `pytest-cov` and enforce minimum branch coverage in CI.
+- ✅ Add `pytest-cov` and enforce **90% minimum coverage** in CI (`pytest --cov-fail-under=90`).
 - Add regression tests for log truncation + response schema consistency.
 - Add property-based fuzz tests for `security_scan` bypass attempts.
 - Add request/response schema models (Pydantic) to tighten API contracts.
@@ -52,19 +52,21 @@ The repository currently has no automated tests for the FastAPI orchestration fl
 - Add patch scoring (safety + performance + confidence) before delivery.
 - Add offline simulation harness for comparing model quality/cost/latency.
 
-### Phase 5 — Vercel-Ready Production Deployment
+### Phase 5 — Deployment Topology Decision
 
-- Finalize Vercel environment variables:
-  - `DEEPSEEK_API_KEY`
-  - `BASE_URL`
-  - `MODEL`
-- Add `vercel.json` rewrite/route tests in preview deploys.
-- Add edge caching headers for static assets.
-- Add API timeout and retry strategy tuned for serverless runtime limits.
+- ✅ Keep **serverless-first on Vercel** for both frontend + Python API.
+- Rationale:
+  - lowest ops overhead for thesis/demo environments
+  - single deployment surface and simpler onboarding
+  - existing `vercel.json` + `api/index.py` already aligned
+- Guardrails:
+  - keep a migration path to Render/Fly.io if sustained API load or long-running jobs are introduced
+  - document API timeout behavior and add retry strategy for client calls
 
 ### Phase 6 — Good Mobile Responsive UI
 
-- Audit all dashboard layouts at 320px, 375px, 768px breakpoints.
+- ✅ Choose a **prioritized responsive pass first** (overview + live demo + nav).
+- Audit critical screens at 320px, 375px, 768px breakpoints.
 - Prioritize mobile nav ergonomics:
   - collapsible sidebar
   - sticky action bar for “Run Simulation”
@@ -95,8 +97,8 @@ The repository currently has no automated tests for the FastAPI orchestration fl
 3. **Production promotion**
    - gated by coverage and smoke test pass
 
-## Clarifications Needed Before Full Execution
+## Implementation Decisions (Resolved)
 
-1. Preferred minimum test coverage target (e.g., 85%, 90%, 95%)?
-2. Should Vercel host **only** frontend, while Brain API stays on a long-running host (Render/Fly.io), or do you want everything serverless-first?
-3. Do you want mobile responsiveness improvements delivered as a dedicated UI refactor next, or limited to critical-path screens first?
+1. **Coverage threshold in CI:** 90% minimum.
+2. **Deployment topology:** Keep frontend + API on Vercel (serverless-first).
+3. **Mobile UI scope now:** Prioritized pass on critical-path screens first (overview + live demo + navigation).
