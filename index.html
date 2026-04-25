@@ -159,6 +159,32 @@
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   padding: var(--s-5);
+  box-shadow: var(--shadow-sm);
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+section {
+  position: relative;
+}
+
+.fs-card,
+.worker-card,
+.hydra-stat {
+  backdrop-filter: blur(4px);
+}
+
+.fs-card p,
+.hydra-stat > div:first-child {
+  color: var(--muted-4);
+}
+
+.fs-navbar .metric-chip {
+  color: var(--text-2);
 }
 
 /* Focused mobile pass (overview + demo + nav) */
