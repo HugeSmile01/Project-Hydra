@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "api/index.py", "use": "@vercel/python" },
+    { "src": "index.html", "use": "@vercel/static" },
+    { "src": "edge-worker.html", "use": "@vercel/static" },
+    { "src": "fs-3.0.min.css", "use": "@vercel/static" },
+    { "src": "fs-3.0.min.js", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/index.py" },
+    { "src": "/", "dest": "/index.html" },
+    { "src": "/edge-worker", "dest": "/edge-worker.html" },
+    { "src": "/(fs-3.0\\.min\\.(css|js))", "dest": "/$1" }
+  ]
+}

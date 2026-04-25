@@ -129,6 +129,38 @@ Synthesized code is scanned and escalated through hardened sandboxes:
 
 ---
 
+
+## Testing
+
+Run the backend test suite:
+
+```bash
+pytest -q
+```
+
+Covers helper logic, API behavior, rejection flows, and AI synthesis failure handling.
+
+---
+
+## Vercel Deployment (Frontend + Python API)
+
+This repo now includes:
+
+- `vercel.json` for routing static assets and API requests
+- `api/index.py` as the Vercel Python function entrypoint
+
+Deploy steps:
+
+```bash
+vercel
+```
+
+Set environment variables in Vercel Project Settings:
+
+- `DEEPSEEK_API_KEY`
+- `BASE_URL`
+- `MODEL`
+
 ## Tech Stack
 
 - **Backend:** Python · FastAPI · Uvicorn · OpenAI SDK
