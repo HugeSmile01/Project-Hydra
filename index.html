@@ -214,6 +214,39 @@ section {
   display: none;
 }
 
+.side-nav-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin-bottom: var(--s-5);
+}
+
+.side-nav-head .fs-sidebar-logo {
+  margin-bottom: 0;
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.side-nav-close {
+  margin-left: auto;
+}
+
+.viz-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--s-5);
+}
+
+.viz-card canvas {
+  width: 100% !important;
+  height: 260px !important;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
 @media (max-width: 1100px) {
   .fs-navbar {
     gap: var(--s-3);
@@ -306,10 +339,15 @@ section {
 <body>
 
 <!-- ── SIDE NAV ── -->
-<nav id="side-nav" aria-label="Sidebar Navigation">
-  <a href="#" class="fs-sidebar-logo">
-    <span style="color:var(--accent)">⬡</span>&nbsp;Project Hydra
-  </a>
+<nav id="side-nav" aria-label="Sidebar Navigation" aria-hidden="true">
+  <div class="side-nav-head">
+    <a href="#" class="fs-sidebar-logo">
+      <span style="color:var(--accent)">⬡</span>&nbsp;Project Hydra
+    </a>
+    <button class="menu-toggle side-nav-close" type="button" aria-label="Close menu" data-close-side-nav>
+      <i data-feather="x"></i>
+    </button>
+  </div>
 
   <div class="fs-nav-group">
     <div class="fs-nav-group-label">Dashboard</div>
@@ -324,6 +362,7 @@ section {
     <a href="#architecture" class="fs-nav-item"><i data-feather="layers" class="fs-nav-icon"></i> Architecture</a>
     <a href="#security" class="fs-nav-item"><i data-feather="shield" class="fs-nav-icon"></i> Security Tiers</a>
     <a href="#demo" class="fs-nav-item"><i data-feather="play-circle" class="fs-nav-icon"></i> Live Demo</a>
+    <a href="edge-worker.html" class="fs-nav-item"><i data-feather="external-link" class="fs-nav-icon"></i> Edge Worker Lab</a>
   </div>
 
   <div class="fs-nav-group">
@@ -336,11 +375,12 @@ section {
     </a>
   </div>
 </nav>
+<div class="fs-side-nav-overlay" id="side-nav-overlay" aria-hidden="true"></div>
 
 <!-- ── TOP NAVBAR ── -->
 <header class="fs-navbar">
   <div class="fs-row align-center gap-4">
-    <button id="menu-toggle" class="menu-toggle" aria-label="Toggle menu">
+    <button id="menu-toggle" class="menu-toggle" aria-label="Toggle menu" aria-controls="side-nav" aria-expanded="false">
       <i data-feather="menu"></i>
     </button>
     <span class="fs-navbar-brand">⬡ Hydra <span style="color:var(--muted-2);font-size:var(--text-sm);font-family:var(--font-mono)">OS</span></span>
@@ -812,7 +852,7 @@ client = OpenAI(
       </button>
     </div>
 
-    <div class="fs-table-container animate-on-scroll">
+    <div class="fs-table-container animate-on-scroll table-scroll">
       <table class="fs-table">
         <thead>
           <tr>
@@ -842,7 +882,7 @@ client = OpenAI(
   <div class="fs-container">
     <h2 class="text-3xl font-display mb-8 animate-on-scroll">Evolution Metrics</h2>
     <div class="fs-grid-2 gap-6">
-      <div class="fs-chart-wrapper animate-on-scroll">
+      <div class="fs-chart-wrapper animate-on-scroll viz-card">
         <div class="fs-chart-header">
           <div>
             <div class="fs-chart-title">Evolutions Over Time</div>
@@ -851,7 +891,7 @@ client = OpenAI(
         </div>
         <canvas id="evo-chart" class="fs-chart-canvas" height="180"></canvas>
       </div>
-      <div class="fs-chart-wrapper animate-on-scroll">
+      <div class="fs-chart-wrapper animate-on-scroll viz-card">
         <div class="fs-chart-header">
           <div>
             <div class="fs-chart-title">Event Breakdown</div>
@@ -870,7 +910,7 @@ client = OpenAI(
     <h2 class="text-3xl font-display mb-2 animate-on-scroll">Runtime Accuracy Board</h2>
     <p class="text-muted mb-8 animate-on-scroll">All values below are live from this session (browser simulation + Central Brain API when available).</p>
 
-    <div class="fs-table-container animate-on-scroll">
+    <div class="fs-table-container animate-on-scroll table-scroll">
       <table class="fs-table accuracy-table">
         <thead>
           <tr>
@@ -974,6 +1014,7 @@ window.addEventListener('DOMContentLoaded', () => {
   feather.replace();
   renderWorkers();
   initCharts();
+  refreshChartTheme();
   initCommands();
   syncBackendStatus();
   updateRuntimeBoard();
@@ -995,6 +1036,8 @@ window.addEventListener('DOMContentLoaded', () => {
     entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('visible'); });
   }, { threshold: 0.1 });
   document.querySelectorAll('.animate-on-scroll').forEach(el => obs.observe(el));
+
+  document.addEventListener('fs-theme-change', refreshChartTheme);
 });
 
 // ── Workers ─────────────────────────────────────────────────────────────────
@@ -1311,8 +1354,10 @@ function escHtml(s) {
 // ── Charts ───────────────────────────────────────────────────────────────────
 
 function initCharts() {
-  const accent = '#6366f1';
-  Chart.defaults.color = '#6b7280';
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#6366f1';
+  const textMuted = getComputedStyle(document.documentElement).getPropertyValue('--muted-3').trim() || '#6b7280';
+  const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#2f2f44';
+  Chart.defaults.color = textMuted;
 
   evoChart = new Chart(document.getElementById('evo-chart'), {
     type: 'line',
@@ -1320,7 +1365,15 @@ function initCharts() {
       labels: [],
       datasets: [{ label: 'Evolutions', data: [], borderColor: accent, backgroundColor: accent + '20', fill: true, tension: 0.4, pointRadius: 3 }]
     },
-    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: gridColor } },
+        x: { grid: { color: gridColor } }
+      }
+    }
   });
 
   outcomeChart = new Chart(document.getElementById('outcome-chart'), {
@@ -1329,8 +1382,23 @@ function initCharts() {
       labels: ['Evolved', 'Rejected', 'Failed'],
       datasets: [{ data: [0, 0, 0], backgroundColor: ['#22c55e', '#ef4444', '#eab308'], borderWidth: 0 }]
     },
-    options: { responsive: true, plugins: { legend: { position: 'bottom' } }, cutout: '65%' }
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, cutout: '65%' }
   });
+}
+
+function refreshChartTheme() {
+  if (!evoChart || !outcomeChart) return;
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#6366f1';
+  const textMuted = getComputedStyle(document.documentElement).getPropertyValue('--muted-3').trim() || '#6b7280';
+  const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#2f2f44';
+
+  Chart.defaults.color = textMuted;
+  evoChart.data.datasets[0].borderColor = accent;
+  evoChart.data.datasets[0].backgroundColor = accent + '20';
+  evoChart.options.scales.y.grid.color = gridColor;
+  evoChart.options.scales.x.grid.color = gridColor;
+  evoChart.update();
+  outcomeChart.update();
 }
 
 function updateEvoChart(label) {

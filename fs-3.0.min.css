@@ -664,7 +664,46 @@ pre code { background: none; padding: 0; font-size: var(--text-sm); }
 }
 
 #side-nav.active { transform: translateX(0); }
-.menu-toggle { display: none; cursor: pointer; background: none; border: none; color: var(--text-1); padding: var(--s-2); border-radius: var(--r-base); }
+.menu-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-1);
+  padding: var(--s-2);
+  border-radius: var(--r-base);
+  min-height: 36px;
+  min-width: 36px;
+}
+.menu-toggle:hover {
+  border-color: var(--muted-2);
+  color: var(--text-0);
+}
+.menu-toggle:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 78%, white 22%);
+  outline-offset: 2px;
+}
+
+.fs-side-nav-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: rgba(0,0,0,0.4);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--t-base) var(--ease-out), visibility var(--t-base) var(--ease-out);
+}
+
+.fs-side-nav-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+body.fs-side-nav-open {
+  overflow: hidden;
+}
 
 /* ============================================================
    BUTTON SYSTEM
