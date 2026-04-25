@@ -140,9 +140,17 @@ pytest -q
 
 Covers helper logic, API behavior, rejection flows, and AI synthesis failure handling.
 
+CI enforces a **90% minimum coverage gate**:
+
+```bash
+pytest --cov=brain --cov-report=term-missing --cov-fail-under=90 -q
+```
+
 ---
 
 ## Vercel Deployment (Frontend + Python API)
+
+Current deployment decision: **serverless-first** on Vercel for both the static frontend and Python API function.
 
 This repo now includes:
 
@@ -160,6 +168,8 @@ Set environment variables in Vercel Project Settings:
 - `DEEPSEEK_API_KEY`
 - `BASE_URL`
 - `MODEL`
+
+If traffic or long-running workloads outgrow serverless limits, move only the API to Render/Fly.io and keep the frontend on Vercel.
 
 ## Tech Stack
 

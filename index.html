@@ -160,6 +160,70 @@
   border-radius: var(--r-lg);
   padding: var(--s-5);
 }
+
+/* Focused mobile pass (overview + demo + nav) */
+.hero-actions,
+.hero-metrics,
+.demo-controls {
+  width: 100%;
+}
+
+.mobile-quick-nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--s-3);
+  }
+
+  .hero-actions .fs-btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  .hero-metrics {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: var(--s-3) var(--s-5);
+  }
+
+  .demo-controls .fs-btn {
+    min-height: 44px;
+  }
+
+  .demo-status {
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 0 !important;
+  }
+
+  .mobile-quick-nav {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 60;
+    background: color-mix(in srgb, var(--surface-0) 92%, black 8%);
+    border-top: 1px solid var(--border);
+    padding: var(--s-2);
+    backdrop-filter: blur(8px);
+  }
+
+  .mobile-quick-nav .fs-btn {
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  body {
+    padding-bottom: 70px;
+  }
+}
 </style>
 </head>
 <body>
@@ -245,7 +309,7 @@
     A self-healing, self-evolving edge-compute system. When hardware fails, it asks for an update — then heals itself in seconds.
   </p>
 
-  <div class="fs-row align-center gap-4 fs-animate-fade-in-up delay-200">
+  <div class="fs-row align-center gap-4 fs-animate-fade-in-up delay-200 hero-actions">
     <button class="fs-btn fs-btn-primary fs-btn-lg" onclick="startSimulation()">
       <i data-feather="play"></i> Start Simulation
     </button>
@@ -254,7 +318,7 @@
     </button>
   </div>
 
-  <div class="fs-row align-center gap-8 mt-12 fs-animate-fade-in-up delay-300"
+  <div class="fs-row align-center gap-8 mt-12 fs-animate-fade-in-up delay-300 hero-metrics"
        style="color:var(--muted-3);font-size:var(--text-sm)">
     <span><strong style="color:var(--text-1)">5.9×</strong> Less Downtime</span>
     <span><strong style="color:var(--text-1)">~0s</strong> MTTR</span>
@@ -620,7 +684,7 @@ client = OpenAI(
     <p class="text-muted mb-8 animate-on-scroll">Watch the full self-correction loop execute in real-time.</p>
 
     <!-- Control bar -->
-    <div class="fs-row flex-wrap gap-3 mb-6 animate-on-scroll">
+    <div class="fs-row flex-wrap gap-3 mb-6 animate-on-scroll demo-controls">
       <button class="fs-btn fs-btn-primary" onclick="startSimulation()" id="btn-run">
         <i data-feather="play"></i> Run Simulation
       </button>
@@ -633,7 +697,7 @@ client = OpenAI(
       <button class="fs-btn fs-btn-ghost" onclick="clearTerminal()">
         <i data-feather="trash"></i> Clear
       </button>
-      <div class="fs-row align-center gap-2" style="margin-left:auto">
+      <div class="fs-row align-center gap-2 demo-status" style="margin-left:auto">
         <span style="font-size:var(--text-xs);color:var(--muted-3)">Current Phase:</span>
         <span class="phase-badge idle" id="current-phase">Idle</span>
       </div>
@@ -797,6 +861,13 @@ client = OpenAI(
 </section>
 
 </main>
+
+<nav class="mobile-quick-nav" aria-label="Quick mobile actions">
+  <a href="#overview" class="fs-btn fs-btn-ghost fs-btn-sm">Overview</a>
+  <a href="#demo" class="fs-btn fs-btn-ghost fs-btn-sm">Live Demo</a>
+  <button class="fs-btn fs-btn-primary fs-btn-sm" onclick="startSimulation()">Run</button>
+  <button class="fs-btn fs-btn-ghost fs-btn-sm" onclick="document.getElementById('menu-toggle').click()">Menu</button>
+</nav>
 
 <!-- ── MODAL: Worker detail ── -->
 <div class="fs-modal-backdrop" id="worker-modal" onclick="closeWorkerModal(event)">
